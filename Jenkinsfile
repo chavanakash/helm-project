@@ -20,6 +20,17 @@ pipeline {
             }
         }
 
+        stage("Check Branch") {
+            steps {
+                script {
+                    if (env.GIT_BRANCH != 'origin/main') {
+                        currentBuild.result = 'ABORTED'
+                        error("Pipeline runs only on main branch. Skipping branch: ${env.GIT_BRANCH}")
+                    }
+                }
+            }
+        }
+
         stage("Build Images") {
             parallel {
                 stage("Frontend") {
