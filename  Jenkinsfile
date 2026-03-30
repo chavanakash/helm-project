@@ -5,11 +5,12 @@ pipeline {
     DOCKER_USER  = "dockerizzz"
     IMAGE_TAG    = "${env.BUILD_NUMBER}"
     HELM_RELEASE = "devops-app"
-    HELM_CHART   = "./helm/devops-app"
+    HELM_CHART   = "./HELM/DEVOPS-APP"
     KUBE_NS      = "default"
   }
 
   stages {
+
     stage("Checkout") {
       steps { checkout scm }
     }
@@ -18,22 +19,12 @@ pipeline {
       parallel {
         stage("Frontend") {
           steps {
-            sh """
-              docker build \
-                -t dockerizzz/frontend:${IMAGE_TAG} \
-                -t dockerizzz/frontend:latest \
-                ./frontend
-            """
+            sh "docker build -t dockerizzz/frontend:${IMAGE_TAG} -t dockerizzz/frontend:latest ./FRONTEND"
           }
         }
         stage("Backend") {
           steps {
-            sh """
-              docker build \
-                -t dockerizzz/backend:${IMAGE_TAG} \
-                -t dockerizzz/backend:latest \
-                ./backend
-            """
+            sh "docker build -t dockerizzz/backend:${IMAGE_TAG} -t dockerizzz/backend:latest ./BACKEND"
           }
         }
       }
@@ -41,7 +32,7 @@ pipeline {
 
     stage("Test") {
       steps {
-        dir("backend") {
+        dir("BACKEND") {
           sh "npm ci"
           sh "npm test --if-present"
         }
@@ -52,10 +43,10 @@ pipeline {
       steps {
         withCredentials([usernamePassword(
           credentialsId: "dockerhub-credentials",
-          usernameVariable: "DOCKER_LOGIN_USER",
-          passwordVariable: "DOCKER_LOGIN_PASS"
+          usernameVariable: "DOCKER_USER_LOGIN",
+          passwordVariable: "DOCKER_PASS"
         )]) {
-          sh "echo ${DOCKER_LOGIN_PASS} | docker login -u ${DOCKER_LOGIN_USER} --password-stdin"
+          sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER_LOGIN --password-stdin"
           sh "docker push dockerizzz/frontend:${IMAGE_TAG}"
           sh "docker push dockerizzz/frontend:latest"
           sh "docker push dockerizzz/backend:${IMAGE_TAG}"
@@ -64,12 +55,9 @@ pipeline {
       }
     }
 
-    stage("Deploy") {
+    stage("Deploy App") {
       steps {
-        withCredentials([file(
-          credentialsId: "kubeconfig-secret",
-          variable: "KUBECONFIG"
-        )]) {
+        withCredentials([file(credentialsId: "kubeconfig-secret", variable: "KUBECONFIG")]) {
           sh """
             helm upgrade --install ${HELM_RELEASE} ${HELM_CHART} \
               --namespace ${KUBE_NS} \
@@ -81,11 +69,29 @@ pipeline {
         }
       }
     }
+
+    stage("Deploy Monitoring") {
+      steps {
+        withCredentials([file(credentialsId: "kubeconfig-secret", variable: "KUBECONFIG")]) {
+          sh """
+            helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+            helm repo update
+            helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+              --namespace monitoring \
+              --create-namespace \
+              --set grafana.adminPassword=admin123 \
+              --set grafana.service.type=NodePort \
+              --set grafana.service.nodePort=32000 \
+              --wait --timeout 10m
+          """
+        }
+      }
+    }
   }
 
   post {
-    always { sh "docker logout || true" }
-    success { echo "Deployment successful — tag: ${IMAGE_TAG}" }
+    always  { sh "docker logout || true" }
+    success { echo "Pipeline complete — Build #${IMAGE_TAG} deployed" }
     failure { echo "Pipeline failed — check logs above" }
   }
 }
