@@ -12,19 +12,21 @@ pipeline {
   stages {
 
     stage("Checkout") {
-      steps { checkout scm }
+      steps {
+        checkout scm
+      }
     }
 
     stage("Build Images") {
       parallel {
         stage("Frontend") {
           steps {
-            sh "docker build -t dockerizzz/frontend:${IMAGE_TAG} -t dockerizzz/frontend:latest ./FRONTEND"
+            sh "docker build -t ${DOCKER_USER}/frontend:${IMAGE_TAG} -t ${DOCKER_USER}/frontend:latest ./FRONTEND"
           }
         }
         stage("Backend") {
           steps {
-            sh "docker build -t dockerizzz/backend:${IMAGE_TAG} -t dockerizzz/backend:latest ./BACKEND"
+            sh "docker build -t ${DOCKER_USER}/backend:${IMAGE_TAG} -t ${DOCKER_USER}/backend:latest ./BACKEND"
           }
         }
       }
@@ -46,11 +48,13 @@ pipeline {
           usernameVariable: "DOCKER_USER_LOGIN",
           passwordVariable: "DOCKER_PASS"
         )]) {
-          sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER_LOGIN --password-stdin"
-          sh "docker push dockerizzz/frontend:${IMAGE_TAG}"
-          sh "docker push dockerizzz/frontend:latest"
-          sh "docker push dockerizzz/backend:${IMAGE_TAG}"
-          sh "docker push dockerizzz/backend:latest"
+          sh '''
+            echo $DOCKER_PASS | docker login -u $DOCKER_USER_LOGIN --password-stdin
+            docker push ${DOCKER_USER}/frontend:${IMAGE_TAG}
+            docker push ${DOCKER_USER}/frontend:latest
+            docker push ${DOCKER_USER}/backend:${IMAGE_TAG}
+            docker push ${DOCKER_USER}/backend:latest
+          '''
         }
       }
     }
@@ -58,14 +62,15 @@ pipeline {
     stage("Deploy App") {
       steps {
         withCredentials([file(credentialsId: "kubeconfig-secret", variable: "KUBECONFIG")]) {
-          sh """
+          sh '''
+            export KUBECONFIG=$KUBECONFIG
             helm upgrade --install ${HELM_RELEASE} ${HELM_CHART} \
               --namespace ${KUBE_NS} \
               --create-namespace \
               --set frontend.image.tag=${IMAGE_TAG} \
               --set backend.image.tag=${IMAGE_TAG} \
               --wait --timeout 5m
-          """
+          '''
         }
       }
     }
@@ -73,7 +78,8 @@ pipeline {
     stage("Deploy Monitoring") {
       steps {
         withCredentials([file(credentialsId: "kubeconfig-secret", variable: "KUBECONFIG")]) {
-          sh """
+          sh '''
+            export KUBECONFIG=$KUBECONFIG
             helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
             helm repo update
             helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
@@ -83,7 +89,7 @@ pipeline {
               --set grafana.service.type=NodePort \
               --set grafana.service.nodePort=32000 \
               --wait --timeout 10m
-          """
+          '''
         }
       }
     }
