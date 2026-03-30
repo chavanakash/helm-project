@@ -199,6 +199,148 @@ function Weather({ onClose }) {
   );
 }
 
+const IPL_KEY_STORAGE = "cricapi_key";
+
+function IPLScore({ onClose }) {
+  const [apiKey,   setApiKey]   = useState(() => localStorage.getItem(IPL_KEY_STORAGE) || "");
+  const [keyInput, setKeyInput] = useState("");
+  const [matches,  setMatches]  = useState([]);
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState(null);
+  const [lastSync, setLastSync] = useState(null);
+
+  const fetchMatches = useCallback(async (key) => {
+    setLoading(true); setError(null);
+    try {
+      const res  = await fetch(`https://api.cricapi.com/v1/currentMatches?apikey=${key}&offset=0`);
+      const data = await res.json();
+      if (data.status !== "success") throw new Error(data.reason || "API error");
+      const ipl = (data.data || []).filter(m =>
+        /ipl|indian premier league/i.test(m.name + " " + (m.series_id || ""))
+      );
+      setMatches(ipl);
+      setLastSync(new Date().toLocaleTimeString());
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (apiKey) fetchMatches(apiKey);
+  }, [apiKey, fetchMatches]);
+
+  function saveKey(e) {
+    e.preventDefault();
+    const k = keyInput.trim();
+    if (!k) return;
+    localStorage.setItem(IPL_KEY_STORAGE, k);
+    setApiKey(k);
+    setKeyInput("");
+  }
+
+  function clearKey() {
+    localStorage.removeItem(IPL_KEY_STORAGE);
+    setApiKey(""); setMatches([]); setError(null);
+  }
+
+  function statusColor(s = "") {
+    if (/live|progress/i.test(s)) return "#22c55e";
+    if (/complete|won/i.test(s))  return "#94a3b8";
+    return "#f59e0b";
+  }
+
+  function statusLabel(s = "") {
+    if (/live|progress/i.test(s)) return "🔴 LIVE";
+    if (/complete|won/i.test(s))  return "✅ Completed";
+    return "🕐 Upcoming";
+  }
+
+  return (
+    <div style={calcStyles.overlay} onClick={onClose}>
+      <div style={iplStyles.panel} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div style={iplStyles.header}>
+          <div style={{display:"flex", alignItems:"center", gap:"0.5rem"}}>
+            <span style={{fontSize:"1.1rem"}}>🏏</span>
+            <span style={iplStyles.title}>IPL Live Scores</span>
+          </div>
+          <div style={{display:"flex", alignItems:"center", gap:"0.5rem"}}>
+            {lastSync && <span style={iplStyles.syncText}>Updated {lastSync}</span>}
+            {apiKey && (
+              <button style={iplStyles.refreshBtn} onClick={() => fetchMatches(apiKey)} disabled={loading}>
+                {loading ? "…" : "↻"}
+              </button>
+            )}
+            <button style={calcStyles.closeBtn} onClick={onClose}>✕</button>
+          </div>
+        </div>
+
+        {/* API key setup */}
+        {!apiKey ? (
+          <div style={iplStyles.setupBox}>
+            <div style={{fontSize:"2.5rem", marginBottom:"0.75rem"}}>🔑</div>
+            <p style={iplStyles.setupInfo}>
+              Requires a free <strong>CricAPI</strong> key.<br/>
+              Get one at <span style={{color:"#38bdf8"}}>cricapi.com</span> (100 calls/day free).
+            </p>
+            <form onSubmit={saveKey} style={{width:"100%", display:"flex", flexDirection:"column", gap:"0.5rem"}}>
+              <input style={iplStyles.keyInput} placeholder="Paste your API key…"
+                value={keyInput} onChange={e => setKeyInput(e.target.value)} autoFocus />
+              <button style={iplStyles.saveBtn} type="submit">Save & Load Scores</button>
+            </form>
+          </div>
+        ) : (
+          <div style={iplStyles.body}>
+            {error && (
+              <div style={iplStyles.error}>
+                ⚠️ {error}
+                <button style={iplStyles.clearKeyBtn} onClick={clearKey}>Reset key</button>
+              </div>
+            )}
+
+            {!loading && !error && matches.length === 0 && (
+              <div style={iplStyles.empty}>
+                <span style={{fontSize:"2.5rem"}}>😴</span>
+                <p style={{color:"#94a3b8", marginTop:"0.5rem", fontSize:"0.85rem"}}>
+                  No IPL matches found right now.
+                </p>
+                <button style={iplStyles.clearKeyBtn} onClick={clearKey}>Change key</button>
+              </div>
+            )}
+
+            {matches.map(m => (
+              <div key={m.id} style={iplStyles.matchCard}>
+                <div style={iplStyles.matchTop}>
+                  <span style={{...iplStyles.statusBadge, color: statusColor(m.status)}}>
+                    {statusLabel(m.status)}
+                  </span>
+                  <span style={iplStyles.matchName}>{m.name}</span>
+                </div>
+
+                {(m.score || []).map((s, i) => (
+                  <div key={i} style={iplStyles.scoreRow}>
+                    <span style={iplStyles.teamName}>{s.inning?.replace(" Inning 1","").replace(" Inning 2"," (2nd)") || "—"}</span>
+                    <span style={iplStyles.scoreVal}>
+                      {s.r !== undefined ? `${s.r}/${s.w}` : "—"}
+                      {s.o ? <span style={iplStyles.overs}> ({s.o} ov)</span> : null}
+                    </span>
+                  </div>
+                ))}
+
+                {m.status && (
+                  <div style={iplStyles.matchStatus}>{m.status}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [items,      setItems]      = useState([]);
   const [name,       setName]       = useState("");
@@ -207,6 +349,7 @@ export default function App() {
   const [loading,    setLoading]    = useState(false);
   const [showCalc,   setShowCalc]   = useState(false);
   const [showWeather,setShowWeather] = useState(false);
+  const [showIPL,    setShowIPL]     = useState(false);
 
   const fetchItems = useCallback(async () => {
     try {
@@ -272,6 +415,9 @@ export default function App() {
                 <span key={b} style={styles.badge}>{b}</span>
               ))}
             </div>
+            <button style={styles.calcIconBtn} onClick={() => setShowIPL(true)} title="IPL Scores">
+              🏏
+            </button>
             <button style={styles.calcIconBtn} onClick={() => setShowWeather(true)} title="Open Weather">
               🌤️
             </button>
@@ -282,6 +428,7 @@ export default function App() {
         </div>
       </header>
 
+      {showIPL     && <IPLScore onClose={() => setShowIPL(false)} />}
       {showWeather && <Weather onClose={() => setShowWeather(false)} />}
       {showCalc && <Calculator onClose={() => setShowCalc(false)} />}
 
@@ -428,6 +575,31 @@ const wxStyles = {
   statLabel:   { fontSize:"0.72rem", color:"#64748b" },
   statVal:     { fontSize:"0.95rem", fontWeight:600 },
   placeholder: { display:"flex", flexDirection:"column", alignItems:"center", padding:"2rem 1rem" },
+};
+
+const iplStyles = {
+  panel:        { background:"#0d1117", borderRadius:20, overflow:"hidden", width:380, maxHeight:"80vh", display:"flex", flexDirection:"column", boxShadow:"0 24px 60px rgba(0,0,0,0.6)", color:"#fff" },
+  header:       { display:"flex", justifyContent:"space-between", alignItems:"center", padding:"0.85rem 1rem", borderBottom:"1px solid rgba(255,255,255,0.08)", flexShrink:0 },
+  title:        { color:"#fff", fontSize:"0.9rem", fontWeight:700 },
+  syncText:     { fontSize:"0.65rem", color:"#64748b" },
+  refreshBtn:   { background:"rgba(255,255,255,0.08)", border:"none", color:"#94a3b8", borderRadius:6, padding:"0.2rem 0.5rem", cursor:"pointer", fontSize:"1rem" },
+  body:         { overflowY:"auto", padding:"0.75rem", display:"flex", flexDirection:"column", gap:"0.6rem" },
+  matchCard:    { background:"rgba(255,255,255,0.05)", borderRadius:12, padding:"0.85rem 1rem", border:"1px solid rgba(255,255,255,0.07)" },
+  matchTop:     { display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"0.6rem", flexWrap:"wrap" },
+  statusBadge:  { fontSize:"0.7rem", fontWeight:700, letterSpacing:"0.3px" },
+  matchName:    { fontSize:"0.72rem", color:"#64748b", flex:1 },
+  scoreRow:     { display:"flex", justifyContent:"space-between", alignItems:"baseline", padding:"0.25rem 0", borderTop:"1px solid rgba(255,255,255,0.05)" },
+  teamName:     { fontSize:"0.82rem", color:"#cbd5e1", fontWeight:500, flex:1 },
+  scoreVal:     { fontSize:"1rem", fontWeight:700, color:"#f1f5f9" },
+  overs:        { fontSize:"0.72rem", color:"#64748b", fontWeight:400 },
+  matchStatus:  { fontSize:"0.72rem", color:"#94a3b8", marginTop:"0.5rem", paddingTop:"0.4rem", borderTop:"1px solid rgba(255,255,255,0.05)" },
+  setupBox:     { display:"flex", flexDirection:"column", alignItems:"center", padding:"1.75rem 1.25rem", gap:"0.5rem" },
+  setupInfo:    { textAlign:"center", color:"#94a3b8", fontSize:"0.82rem", lineHeight:1.6, margin:0 },
+  keyInput:     { background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:9, padding:"0.6rem 0.85rem", color:"#fff", fontSize:"0.85rem", outline:"none", width:"100%", boxSizing:"border-box" },
+  saveBtn:      { background:"linear-gradient(135deg,#2563eb,#1d4ed8)", border:"none", borderRadius:9, color:"#fff", padding:"0.65rem", cursor:"pointer", fontWeight:600, fontSize:"0.88rem" },
+  error:        { color:"#fca5a5", fontSize:"0.82rem", padding:"0.5rem 0", display:"flex", alignItems:"center", justifyContent:"space-between" },
+  clearKeyBtn:  { background:"rgba(255,255,255,0.08)", border:"none", color:"#94a3b8", borderRadius:6, padding:"0.2rem 0.6rem", cursor:"pointer", fontSize:"0.75rem" },
+  empty:        { display:"flex", flexDirection:"column", alignItems:"center", padding:"2rem 1rem" },
 };
 
 const calcStyles = {
