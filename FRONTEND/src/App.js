@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 const API = process.env.REACT_APP_API_URL || "";
 
@@ -90,6 +90,115 @@ function Calculator({ onClose }) {
   );
 }
 
+function Weather({ onClose }) {
+  const [city,    setCity]    = useState("");
+  const [weather, setWeather] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  async function fetchWeather(e) {
+    e?.preventDefault();
+    const q = city.trim();
+    if (!q) return;
+    setLoading(true); setError(null); setWeather(null);
+    try {
+      const res  = await fetch(`https://wttr.in/${encodeURIComponent(q)}?format=j1`);
+      if (!res.ok) throw new Error("City not found");
+      const data = await res.json();
+      const cur  = data.current_condition[0];
+      const area = data.nearest_area[0];
+      setWeather({
+        city:      area.areaName[0].value,
+        country:   area.country[0].value,
+        temp:      cur.temp_C,
+        feelsLike: cur.FeelsLikeC,
+        humidity:  cur.humidity,
+        wind:      cur.windspeedKmph,
+        desc:      cur.weatherDesc[0].value,
+        code:      parseInt(cur.weatherCode, 10),
+        visibility:cur.visibility,
+        pressure:  cur.pressure,
+      });
+    } catch (err) {
+      setError(err.message || "Failed to fetch weather");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function weatherEmoji(code) {
+    if (code === 113) return "☀️";
+    if (code === 116) return "⛅";
+    if (code === 119 || code === 122) return "☁️";
+    if ([143,248,260].includes(code)) return "🌫️";
+    if ([176,263,266,293,296].includes(code)) return "🌦️";
+    if ([299,302,305,308].includes(code)) return "🌧️";
+    if ([311,314,317,350,377].includes(code)) return "🌨️";
+    if ([320,323,326,329,332,335,338,368,371,374].includes(code)) return "❄️";
+    if ([356,359,362,365].includes(code)) return "⛈️";
+    if ([200,386,389,392,395].includes(code)) return "⛈️";
+    return "🌡️";
+  }
+
+  return (
+    <div style={calcStyles.overlay} onClick={onClose}>
+      <div style={wxStyles.panel} onClick={e => e.stopPropagation()}>
+        <div style={wxStyles.header}>
+          <span style={wxStyles.title}>🌤️ Weather</span>
+          <button style={calcStyles.closeBtn} onClick={onClose}>✕</button>
+        </div>
+
+        <form onSubmit={fetchWeather} style={wxStyles.searchRow}>
+          <input ref={inputRef} style={wxStyles.input} placeholder="Enter city name…"
+            value={city} onChange={e => setCity(e.target.value)} />
+          <button style={wxStyles.searchBtn} type="submit" disabled={loading}>
+            {loading ? "…" : "Search"}
+          </button>
+        </form>
+
+        {error && <div style={wxStyles.error}>⚠️ {error}</div>}
+
+        {weather && (
+          <div style={wxStyles.body}>
+            <div style={wxStyles.locationRow}>
+              <span style={wxStyles.locationText}>{weather.city}, {weather.country}</span>
+            </div>
+            <div style={wxStyles.heroRow}>
+              <span style={wxStyles.heroEmoji}>{weatherEmoji(weather.code)}</span>
+              <span style={wxStyles.heroTemp}>{weather.temp}°C</span>
+            </div>
+            <div style={wxStyles.descText}>{weather.desc}</div>
+            <div style={wxStyles.statsGrid}>
+              {[
+                ["🌡️ Feels like",  `${weather.feelsLike}°C`],
+                ["💧 Humidity",    `${weather.humidity}%`],
+                ["💨 Wind",        `${weather.wind} km/h`],
+                ["👁️ Visibility",  `${weather.visibility} km`],
+                ["🔵 Pressure",    `${weather.pressure} hPa`],
+              ].map(([label, val]) => (
+                <div key={label} style={wxStyles.statCard}>
+                  <span style={wxStyles.statLabel}>{label}</span>
+                  <span style={wxStyles.statVal}>{val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!weather && !error && !loading && (
+          <div style={wxStyles.placeholder}>
+            <span style={{fontSize:"3rem"}}>🌍</span>
+            <p style={{color:"#94a3b8", margin:"0.5rem 0 0", fontSize:"0.85rem"}}>Search a city to see weather</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [items,      setItems]      = useState([]);
   const [name,       setName]       = useState("");
@@ -97,6 +206,7 @@ export default function App() {
   const [status,     setStatus]     = useState(null);
   const [loading,    setLoading]    = useState(false);
   const [showCalc,   setShowCalc]   = useState(false);
+  const [showWeather,setShowWeather] = useState(false);
 
   const fetchItems = useCallback(async () => {
     try {
@@ -162,6 +272,9 @@ export default function App() {
                 <span key={b} style={styles.badge}>{b}</span>
               ))}
             </div>
+            <button style={styles.calcIconBtn} onClick={() => setShowWeather(true)} title="Open Weather">
+              🌤️
+            </button>
             <button style={styles.calcIconBtn} onClick={() => setShowCalc(true)} title="Open Calculator">
               🧮
             </button>
@@ -169,6 +282,7 @@ export default function App() {
         </div>
       </header>
 
+      {showWeather && <Weather onClose={() => setShowWeather(false)} />}
       {showCalc && <Calculator onClose={() => setShowCalc(false)} />}
 
       <main style={styles.main}>
@@ -292,6 +406,28 @@ const styles = {
   empty:        { color:"#94a3b8", fontSize:"0.9rem", marginTop:"0.5rem" },
 
   footer:       { textAlign:"center", padding:"1.5rem", fontSize:"0.75rem", color:"#94a3b8", marginTop:"1rem" },
+};
+
+const wxStyles = {
+  panel:       { background:"#0f172a", borderRadius:20, overflow:"hidden", width:340, boxShadow:"0 24px 60px rgba(0,0,0,0.5)", color:"#fff" },
+  header:      { display:"flex", justifyContent:"space-between", alignItems:"center", padding:"0.85rem 1rem 0.5rem", borderBottom:"1px solid rgba(255,255,255,0.08)" },
+  title:       { color:"#fff", fontSize:"0.85rem", fontWeight:600 },
+  searchRow:   { display:"flex", gap:"0.5rem", padding:"0.85rem 1rem" },
+  input:       { flex:1, background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:9, padding:"0.55rem 0.85rem", color:"#fff", fontSize:"0.88rem", outline:"none" },
+  searchBtn:   { background:"#2563eb", border:"none", borderRadius:9, color:"#fff", padding:"0.55rem 1rem", cursor:"pointer", fontWeight:600, fontSize:"0.85rem" },
+  error:       { padding:"0.6rem 1rem", color:"#fca5a5", fontSize:"0.82rem" },
+  body:        { padding:"0.5rem 1rem 1.25rem" },
+  locationRow: { marginBottom:"0.25rem" },
+  locationText:{ fontSize:"0.82rem", color:"#94a3b8" },
+  heroRow:     { display:"flex", alignItems:"center", gap:"0.75rem", margin:"0.5rem 0 0.25rem" },
+  heroEmoji:   { fontSize:"3rem", lineHeight:1 },
+  heroTemp:    { fontSize:"3rem", fontWeight:200, letterSpacing:"-2px" },
+  descText:    { color:"#cbd5e1", fontSize:"0.88rem", marginBottom:"1rem" },
+  statsGrid:   { display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0.5rem" },
+  statCard:    { background:"rgba(255,255,255,0.06)", borderRadius:10, padding:"0.65rem 0.85rem", display:"flex", flexDirection:"column", gap:"0.2rem" },
+  statLabel:   { fontSize:"0.72rem", color:"#64748b" },
+  statVal:     { fontSize:"0.95rem", fontWeight:600 },
+  placeholder: { display:"flex", flexDirection:"column", alignItems:"center", padding:"2rem 1rem" },
 };
 
 const calcStyles = {
