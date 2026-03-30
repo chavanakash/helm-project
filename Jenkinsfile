@@ -63,7 +63,9 @@ pipeline {
                     variable: "KUBECONFIG_FILE"
                 )]) {
                     sh """
-                        export KUBECONFIG=\$KUBECONFIG_FILE
+                        cp \$KUBECONFIG_FILE /tmp/kubeconfig
+                        sed -i 's/127.0.0.1/host.docker.internal/g' /tmp/kubeconfig
+                        export KUBECONFIG=/tmp/kubeconfig
                         helm upgrade --install ${HELM_RELEASE} ${HELM_CHART} \\
                             --namespace ${KUBE_NS} \\
                             --create-namespace \\
@@ -82,7 +84,9 @@ pipeline {
                     string(credentialsId: "grafana-admin-password", variable: "GRAFANA_PASS")
                 ]) {
                     sh """
-                        export KUBECONFIG=\$KUBECONFIG_FILE
+                        cp \$KUBECONFIG_FILE /tmp/kubeconfig
+                        sed -i 's/127.0.0.1/host.docker.internal/g' /tmp/kubeconfig
+                        export KUBECONFIG=/tmp/kubeconfig
                         helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
                         helm repo update
                         helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \\
