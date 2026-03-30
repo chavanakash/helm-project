@@ -1,0 +1,91 @@
+pipeline {
+  agent any
+
+  environment {
+    DOCKER_USER  = "dockerizzz"
+    IMAGE_TAG    = "${env.BUILD_NUMBER}"
+    HELM_RELEASE = "devops-app"
+    HELM_CHART   = "./helm/devops-app"
+    KUBE_NS      = "default"
+  }
+
+  stages {
+    stage("Checkout") {
+      steps { checkout scm }
+    }
+
+    stage("Build Images") {
+      parallel {
+        stage("Frontend") {
+          steps {
+            sh """
+              docker build \
+                -t dockerizzz/frontend:${IMAGE_TAG} \
+                -t dockerizzz/frontend:latest \
+                ./frontend
+            """
+          }
+        }
+        stage("Backend") {
+          steps {
+            sh """
+              docker build \
+                -t dockerizzz/backend:${IMAGE_TAG} \
+                -t dockerizzz/backend:latest \
+                ./backend
+            """
+          }
+        }
+      }
+    }
+
+    stage("Test") {
+      steps {
+        dir("backend") {
+          sh "npm ci"
+          sh "npm test --if-present"
+        }
+      }
+    }
+
+    stage("Push Images") {
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: "dockerhub-credentials",
+          usernameVariable: "DOCKER_LOGIN_USER",
+          passwordVariable: "DOCKER_LOGIN_PASS"
+        )]) {
+          sh "echo ${DOCKER_LOGIN_PASS} | docker login -u ${DOCKER_LOGIN_USER} --password-stdin"
+          sh "docker push dockerizzz/frontend:${IMAGE_TAG}"
+          sh "docker push dockerizzz/frontend:latest"
+          sh "docker push dockerizzz/backend:${IMAGE_TAG}"
+          sh "docker push dockerizzz/backend:latest"
+        }
+      }
+    }
+
+    stage("Deploy") {
+      steps {
+        withCredentials([file(
+          credentialsId: "kubeconfig-secret",
+          variable: "KUBECONFIG"
+        )]) {
+          sh """
+            helm upgrade --install ${HELM_RELEASE} ${HELM_CHART} \
+              --namespace ${KUBE_NS} \
+              --create-namespace \
+              --set frontend.image.tag=${IMAGE_TAG} \
+              --set backend.image.tag=${IMAGE_TAG} \
+              --wait --timeout 5m
+          """
+        }
+      }
+    }
+  }
+
+  post {
+    always { sh "docker logout || true" }
+    success { echo "Deployment successful — tag: ${IMAGE_TAG}" }
+    failure { echo "Pipeline failed — check logs above" }
+  }
+}

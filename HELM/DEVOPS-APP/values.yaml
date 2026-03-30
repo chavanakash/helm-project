@@ -1,0 +1,62 @@
+global:
+  imageRegistry: ""
+
+frontend:
+  enabled: true
+  image:
+    repository: dockerizzz/frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  service:
+    type: NodePort
+    port: 80
+    nodePort: 30080
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 250m, memory: 256Mi }
+  env:
+    REACT_APP_API_URL: "http://localhost:30050"
+
+backend:
+  enabled: true
+  image:
+    repository: dockerizzz/backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  service:
+    type: NodePort
+    port: 5000
+    nodePort: 30050
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+  env:
+    NODE_ENV: production
+    PORT: "5000"
+
+database:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 5432
+  storage:
+    size: 1Gi
+    storageClass: hostpath
+  credentials:
+    postgresUser: admin
+    postgresPassword: secret
+    postgresDb: appdb
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+
+monitoring:
+  serviceMonitor:
+    enabled: false
+    namespace: monitoring
