@@ -2,10 +2,14 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_TAG    = "${env.BUILD_NUMBER}"
+        IMAGE_TAG    = "${new Date().format('yyyyMMdd')}-${env.BUILD_NUMBER}"
         HELM_RELEASE = "devops-app"
         HELM_CHART   = "./HELM/DEVOPS-APP"
         KUBE_NS      = "default"
+    }
+
+    triggers {
+        githubPush()
     }
 
     stages {
