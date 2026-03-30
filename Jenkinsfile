@@ -64,7 +64,7 @@ pipeline {
                 )]) {
                     sh """
                         cp \$KUBECONFIG_FILE /tmp/kubeconfig
-                        sed -i 's/127.0.0.1/host.docker.internal/g' /tmp/kubeconfig
+                        sed -i 's/127.0.0.1/kubernetes.docker.internal/g' /tmp/kubeconfig
                         export KUBECONFIG=/tmp/kubeconfig
                         helm upgrade --install ${HELM_RELEASE} ${HELM_CHART} \\
                             --namespace ${KUBE_NS} \\
@@ -85,7 +85,7 @@ pipeline {
                 ]) {
                     sh """
                         cp \$KUBECONFIG_FILE /tmp/kubeconfig
-                        sed -i 's/127.0.0.1/host.docker.internal/g' /tmp/kubeconfig
+                        sed -i 's/127.0.0.1/kubernetes.docker.internal/g' /tmp/kubeconfig
                         export KUBECONFIG=/tmp/kubeconfig
                         helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
                         helm repo update
