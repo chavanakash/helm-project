@@ -92,30 +92,6 @@ pipeline {
             }
         }
 
-        stage("Deploy Monitoring") {
-            steps {
-                withCredentials([
-                    file(credentialsId: "kubeconfig-secret", variable: "KUBECONFIG_FILE"),
-                    string(credentialsId: "grafana-admin-password", variable: "GRAFANA_PASS")
-                ]) {
-                    sh """
-                        cp \$KUBECONFIG_FILE /tmp/kubeconfig
-                        sed -i 's/127.0.0.1/kubernetes.docker.internal/g' /tmp/kubeconfig
-                        export KUBECONFIG=/tmp/kubeconfig
-                        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
-                        helm repo update
-                        helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \\
-                            --namespace monitoring \\
-                            --create-namespace \\
-                            --set grafana.adminPassword=\$GRAFANA_PASS \\
-                            --set grafana.service.type=NodePort \\
-                            --set grafana.service.nodePort=32000 \\
-                            --wait --timeout 10m
-                    """
-                }
-            }
-        }
-
     }
 
     post {
