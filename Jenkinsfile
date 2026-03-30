@@ -63,7 +63,7 @@ pipeline {
                     variable: "KUBECONFIG_FILE"
                 )]) {
                     sh """
-                        export KUBECONFIG=$KUBECONFIG_FILE
+                        export KUBECONFIG=\$KUBECONFIG_FILE
                         helm upgrade --install ${HELM_RELEASE} ${HELM_CHART} \\
                             --namespace ${KUBE_NS} \\
                             --create-namespace \\
@@ -82,13 +82,13 @@ pipeline {
                     string(credentialsId: "grafana-admin-password", variable: "GRAFANA_PASS")
                 ]) {
                     sh """
-                        export KUBECONFIG=$KUBECONFIG_FILE
+                        export KUBECONFIG=\$KUBECONFIG_FILE
                         helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
                         helm repo update
                         helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \\
                             --namespace monitoring \\
                             --create-namespace \\
-                            --set grafana.adminPassword=$GRAFANA_PASS \\
+                            --set grafana.adminPassword=\$GRAFANA_PASS \\
                             --set grafana.service.type=NodePort \\
                             --set grafana.service.nodePort=32000 \\
                             --wait --timeout 10m
