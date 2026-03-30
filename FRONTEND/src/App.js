@@ -128,6 +128,7 @@ function Weather({ onClose }) {
       setLoading(false);
     }
   }
+  
 
   function weatherEmoji(code) {
     if (code === 113) return "☀️";
