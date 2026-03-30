@@ -2,12 +2,101 @@ import { useState, useEffect, useCallback } from "react";
 
 const API = process.env.REACT_APP_API_URL || "";
 
+function Calculator({ onClose }) {
+  const [display, setDisplay] = useState("0");
+  const [expr,    setExpr]    = useState("");
+  const [fresh,   setFresh]   = useState(true);
+
+  function pressDigit(d) {
+    if (fresh) { setDisplay(d); setFresh(false); }
+    else setDisplay(prev => prev === "0" ? d : prev + d);
+  }
+
+  function pressOp(op) {
+    setExpr(display + " " + op + " ");
+    setFresh(true);
+  }
+
+  function pressDot() {
+    if (fresh) { setDisplay("0."); setFresh(false); return; }
+    if (!display.includes(".")) setDisplay(prev => prev + ".");
+  }
+
+  function calculate() {
+    try {
+      const full = expr + display;
+      // eslint-disable-next-line no-new-func
+      const result = Function('"use strict"; return (' + full + ')')();
+      setDisplay(String(parseFloat(result.toFixed(10))));
+      setExpr("");
+      setFresh(true);
+    } catch {
+      setDisplay("Error");
+      setExpr("");
+      setFresh(true);
+    }
+  }
+
+  function clear() { setDisplay("0"); setExpr(""); setFresh(true); }
+
+  function toggleSign() { setDisplay(prev => prev.startsWith("-") ? prev.slice(1) : "-" + prev); }
+
+  function percent() { setDisplay(prev => String(parseFloat(prev) / 100)); }
+
+  const btn = (label, onClick, type = "default") => (
+    <button key={label} style={{...calcStyles.btn, ...calcStyles["btn_" + type]}} onClick={onClick}>
+      {label}
+    </button>
+  );
+
+  return (
+    <div style={calcStyles.overlay} onClick={onClose}>
+      <div style={calcStyles.calc} onClick={e => e.stopPropagation()}>
+        <div style={calcStyles.calcHeader}>
+          <span style={calcStyles.calcTitle}>🧮 Calculator</span>
+          <button style={calcStyles.closeBtn} onClick={onClose}>✕</button>
+        </div>
+        <div style={calcStyles.screen}>
+          <div style={calcStyles.exprLine}>{expr || " "}</div>
+          <div style={calcStyles.displayLine}>{display}</div>
+        </div>
+        <div style={calcStyles.grid}>
+          {btn("AC",  clear,       "fn")}
+          {btn("+/-", toggleSign,  "fn")}
+          {btn("%",   percent,     "fn")}
+          {btn("÷",   () => pressOp("/"),  "op")}
+
+          {btn("7", () => pressDigit("7"))}
+          {btn("8", () => pressDigit("8"))}
+          {btn("9", () => pressDigit("9"))}
+          {btn("×", () => pressOp("*"),  "op")}
+
+          {btn("4", () => pressDigit("4"))}
+          {btn("5", () => pressDigit("5"))}
+          {btn("6", () => pressDigit("6"))}
+          {btn("−", () => pressOp("-"),  "op")}
+
+          {btn("1", () => pressDigit("1"))}
+          {btn("2", () => pressDigit("2"))}
+          {btn("3", () => pressDigit("3"))}
+          {btn("+", () => pressOp("+"),  "op")}
+
+          {btn("0", () => pressDigit("0"), "zero")}
+          {btn(".", pressDot)}
+          {btn("=", calculate, "eq")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
-  const [items,   setItems]   = useState([]);
-  const [name,    setName]    = useState("");
-  const [desc,    setDesc]    = useState("");
-  const [status,  setStatus]  = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [items,      setItems]      = useState([]);
+  const [name,       setName]       = useState("");
+  const [desc,       setDesc]       = useState("");
+  const [status,     setStatus]     = useState(null);
+  const [loading,    setLoading]    = useState(false);
+  const [showCalc,   setShowCalc]   = useState(false);
 
   const fetchItems = useCallback(async () => {
     try {
@@ -67,13 +156,20 @@ export default function App() {
             <span style={styles.logoIcon}>⚙️</span>
             <h1 style={styles.title}>DevOps Demo App</h1>
           </div>
-          <div style={styles.badges}>
-            {["React", "Node.js", "PostgreSQL", "Kubernetes"].map(b => (
-              <span key={b} style={styles.badge}>{b}</span>
-            ))}
+          <div style={styles.headerRight}>
+            <div style={styles.badges}>
+              {["React", "Node.js", "PostgreSQL", "Kubernetes"].map(b => (
+                <span key={b} style={styles.badge}>{b}</span>
+              ))}
+            </div>
+            <button style={styles.calcIconBtn} onClick={() => setShowCalc(true)} title="Open Calculator">
+              🧮
+            </button>
           </div>
         </div>
       </header>
+
+      {showCalc && <Calculator onClose={() => setShowCalc(false)} />}
 
       <main style={styles.main}>
         {status && (
@@ -120,7 +216,7 @@ export default function App() {
             : (
               <ul style={styles.list}>
                 {items.map((item, idx) => (
-                  <li key={item.id} style={{...styles.listItem, animationDelay: `${idx * 0.05}s`}}>
+                  <li key={item.id} style={styles.listItem}>
                     <div style={styles.itemLeft}>
                       <div style={styles.itemIndex}>{idx + 1}</div>
                       <div>
@@ -157,8 +253,10 @@ const styles = {
   logoWrap:     { display:"flex", alignItems:"center", gap:"0.6rem" },
   logoIcon:     { fontSize:"1.6rem" },
   title:        { margin:0, fontSize:"1.4rem", fontWeight:700, letterSpacing:"-0.3px" },
+  headerRight:  { display:"flex", alignItems:"center", gap:"0.75rem" },
   badges:       { display:"flex", gap:"0.4rem", flexWrap:"wrap" },
   badge:        { background:"rgba(255,255,255,0.1)", color:"#cbd5e1", padding:"0.2rem 0.65rem", borderRadius:"999px", fontSize:"0.7rem", fontWeight:500, border:"1px solid rgba(255,255,255,0.15)" },
+  calcIconBtn:  { background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.25)", borderRadius:10, fontSize:"1.3rem", cursor:"pointer", padding:"0.3rem 0.5rem", lineHeight:1, transition:"background 0.2s" },
 
   main:         { maxWidth:800, margin:"2rem auto", padding:"0 1rem", display:"flex", flexDirection:"column", gap:"1.25rem" },
 
@@ -175,23 +273,40 @@ const styles = {
   input:        { padding:"0.65rem 0.9rem", border:"1.5px solid #e2e8f0", borderRadius:9, fontSize:"0.92rem", outline:"none", transition:"border-color 0.2s", background:"#f8fafc" },
   btn:          { padding:"0.65rem 1.5rem", background:"linear-gradient(135deg,#2563eb,#1d4ed8)", color:"#fff", border:"none", borderRadius:9, fontWeight:600, cursor:"pointer", fontSize:"0.92rem", boxShadow:"0 2px 8px rgba(37,99,235,0.3)", whiteSpace:"nowrap" },
   btnDisabled:  { opacity:0.6, cursor:"not-allowed" },
-  spinner:      { display:"inline-block", animation:"spin 1s linear infinite" },
+  spinner:      { display:"inline-block" },
 
   listHeader:   { display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"1.25rem" },
   countBadge:   { background:"#eff6ff", color:"#2563eb", padding:"0.2rem 0.7rem", borderRadius:"999px", fontSize:"0.78rem", fontWeight:700, border:"1px solid #bfdbfe" },
 
   list:         { listStyle:"none", margin:0, padding:0, display:"flex", flexDirection:"column", gap:"0.6rem" },
-  listItem:     { display:"flex", justifyContent:"space-between", alignItems:"center", padding:"0.85rem 1rem", background:"#f8fafc", borderRadius:10, fontSize:"0.9rem", border:"1px solid #f1f5f9", transition:"box-shadow 0.2s" },
+  listItem:     { display:"flex", justifyContent:"space-between", alignItems:"center", padding:"0.85rem 1rem", background:"#f8fafc", borderRadius:10, fontSize:"0.9rem", border:"1px solid #f1f5f9" },
   itemLeft:     { display:"flex", alignItems:"flex-start", gap:"0.75rem" },
   itemIndex:    { background:"#e0e7ff", color:"#4338ca", borderRadius:"50%", width:24, height:24, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"0.7rem", fontWeight:700, flexShrink:0, marginTop:2 },
   itemName:     { fontSize:"0.92rem", fontWeight:600, color:"#1e293b" },
   desc:         { color:"#64748b", fontSize:"0.82rem", margin:"0.2rem 0 0" },
   timestamp:    { display:"block", fontSize:"0.72rem", color:"#94a3b8", marginTop:"0.25rem" },
-  deleteBtn:    { background:"none", border:"none", cursor:"pointer", fontSize:"1rem", padding:"0.3rem 0.5rem", borderRadius:6, opacity:0.5, transition:"opacity 0.2s" },
+  deleteBtn:    { background:"none", border:"none", cursor:"pointer", fontSize:"1rem", padding:"0.3rem 0.5rem", borderRadius:6, opacity:0.5 },
 
   emptyState:   { textAlign:"center", padding:"2.5rem 1rem" },
   emptyIcon:    { fontSize:"2.5rem" },
   empty:        { color:"#94a3b8", fontSize:"0.9rem", marginTop:"0.5rem" },
 
   footer:       { textAlign:"center", padding:"1.5rem", fontSize:"0.75rem", color:"#94a3b8", marginTop:"1rem" },
+};
+
+const calcStyles = {
+  overlay:     { position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, backdropFilter:"blur(4px)" },
+  calc:        { background:"#1c1c1e", borderRadius:20, overflow:"hidden", width:280, boxShadow:"0 24px 60px rgba(0,0,0,0.5)" },
+  calcHeader:  { display:"flex", justifyContent:"space-between", alignItems:"center", padding:"0.85rem 1rem 0.5rem", background:"#1c1c1e" },
+  calcTitle:   { color:"#fff", fontSize:"0.85rem", fontWeight:600 },
+  closeBtn:    { background:"rgba(255,255,255,0.1)", border:"none", color:"#fff", borderRadius:"50%", width:24, height:24, cursor:"pointer", fontSize:"0.75rem", display:"flex", alignItems:"center", justifyContent:"center" },
+  screen:      { padding:"0.5rem 1.25rem 1rem", textAlign:"right" },
+  exprLine:    { color:"#6b7280", fontSize:"0.85rem", minHeight:"1.2rem", marginBottom:"0.2rem" },
+  displayLine: { color:"#fff", fontSize:"2.2rem", fontWeight:300, letterSpacing:"-1px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" },
+  grid:        { display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:1, background:"#3a3a3c", padding:1 },
+  btn:         { padding:"1rem 0", fontSize:"1.1rem", fontWeight:400, border:"none", cursor:"pointer", background:"#2c2c2e", color:"#fff", transition:"filter 0.1s" },
+  btn_fn:      { background:"#636366", color:"#fff" },
+  btn_op:      { background:"#ff9f0a", color:"#fff", fontWeight:600 },
+  btn_eq:      { background:"#ff9f0a", color:"#fff", fontWeight:600 },
+  btn_zero:    { gridColumn:"span 2", textAlign:"left", paddingLeft:"1.4rem" },
 };
