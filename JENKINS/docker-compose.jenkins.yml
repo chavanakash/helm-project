@@ -1,6 +1,6 @@
 services:
   jenkins:
-    image: jenkins/jenkins:lts-jdk17
+    build: .
     container_name: jenkins
     user: root
     ports:
@@ -12,7 +12,10 @@ services:
       - ~/.kube:/root/.kube:ro
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+    entrypoint: >
+      bash -c "chmod 666 /var/run/docker.sock && /usr/bin/tini -- /usr/local/bin/jenkins.sh"
     restart: unless-stopped
+
 
 volumes:
   jenkins-data:
