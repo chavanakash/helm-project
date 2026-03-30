@@ -2,10 +2,7 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_TAG    = "${new Date().format('yyyyMMdd')}-${env.BUILD_NUMBER}"
-        HELM_RELEASE = "devops-app"
-        HELM_CHART   = "./HELM/DEVOPS-APP"
-        KUBE_NS      = "default"
+        IMAGE_TAG = "${new Date().format('yyyyMMdd')}-${env.BUILD_NUMBER}"
     }
 
     triggers {
@@ -71,22 +68,23 @@ pipeline {
             }
         }
 
-        stage("Deploy App") {
+        stage("Update Image Tags") {
             steps {
-                withCredentials([file(
-                    credentialsId: "kubeconfig-secret",
-                    variable: "KUBECONFIG_FILE"
+                withCredentials([usernamePassword(
+                    credentialsId: "github-credentials",
+                    usernameVariable: "GIT_USER",
+                    passwordVariable: "GIT_TOKEN"
                 )]) {
                     sh """
-                        cp \$KUBECONFIG_FILE /tmp/kubeconfig
-                        sed -i 's/127.0.0.1/kubernetes.docker.internal/g' /tmp/kubeconfig
-                        export KUBECONFIG=/tmp/kubeconfig
-                        helm upgrade --install ${HELM_RELEASE} ${HELM_CHART} \\
-                            --namespace ${KUBE_NS} \\
-                            --create-namespace \\
-                            --set frontend.image.tag=${IMAGE_TAG} \\
-                            --set backend.image.tag=${IMAGE_TAG} \\
-                            --wait --timeout 5m
+                        git config user.email "jenkins@ci"
+                        git config user.name "Jenkins"
+
+                        sed -i 's|tag: .*  # frontend|tag: ${IMAGE_TAG}  # frontend|' HELM/DEVOPS-APP/values.yaml
+                        sed -i 's|tag: .*  # backend|tag: ${IMAGE_TAG}  # backend|' HELM/DEVOPS-APP/values.yaml
+
+                        git add HELM/DEVOPS-APP/values.yaml
+                        git commit -m "ci: update image tags to ${IMAGE_TAG} [skip ci]"
+                        git push https://\${GIT_USER}:\${GIT_TOKEN}@github.com/chavanakash/helm-project.git HEAD:main
                     """
                 }
             }
@@ -99,7 +97,7 @@ pipeline {
             sh "docker logout || true"
         }
         success {
-            echo "✅ Pipeline complete — Build #${IMAGE_TAG} deployed successfully"
+            echo "✅ Build #${IMAGE_TAG} pushed — ArgoCD will deploy shortly"
         }
         failure {
             echo "❌ Pipeline failed — check logs above"

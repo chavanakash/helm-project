@@ -501,7 +501,10 @@ export default function App() {
       </main>
 
       <footer style={styles.footer}>
-        Deployed on Kubernetes · Monitored with Grafana & Prometheus
+        <div style={styles.footerBanner}>
+          🚀 <strong>v2.0</strong> · Deployed via <span style={{color:"#f97316"}}>ArgoCD GitOps</span> · Jenkins CI + Kubernetes + Helm
+        </div>
+        <div style={styles.footerSub}>Monitored with Grafana &amp; Prometheus</div>
       </footer>
     </div>
   );
@@ -554,6 +557,8 @@ const styles = {
   empty:        { color:"#94a3b8", fontSize:"0.9rem", marginTop:"0.5rem" },
 
   footer:       { textAlign:"center", padding:"1.5rem", fontSize:"0.75rem", color:"#94a3b8", marginTop:"1rem" },
+  footerBanner: { fontSize:"0.82rem", fontWeight:500, color:"#475569", marginBottom:"0.3rem" },
+  footerSub:    { fontSize:"0.72rem", color:"#94a3b8" },
 };
 
 const wxStyles = {

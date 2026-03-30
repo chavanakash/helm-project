@@ -5,7 +5,7 @@ frontend:
   enabled: true
   image:
     repository: dockerizzz/frontend
-    tag: latest
+    tag: latest  # frontend
     pullPolicy: IfNotPresent
   replicaCount: 1
   service:
@@ -22,7 +22,7 @@ backend:
   enabled: true
   image:
     repository: dockerizzz/backend
-    tag: latest
+    tag: latest  # backend
     pullPolicy: IfNotPresent
   replicaCount: 1
   service:
