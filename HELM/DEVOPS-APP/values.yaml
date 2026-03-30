@@ -5,7 +5,7 @@ frontend:
   enabled: true
   image:
     repository: dockerizzz/frontend
-    tag: 20260330-38  # frontend
+    tag: 20260330-39  # frontend
     pullPolicy: IfNotPresent
   replicaCount: 1
   service:
@@ -22,7 +22,7 @@ backend:
   enabled: true
   image:
     repository: dockerizzz/backend
-    tag: 20260330-38  # backend
+    tag: 20260330-39  # backend
     pullPolicy: IfNotPresent
   replicaCount: 1
   service:
