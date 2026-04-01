@@ -2,6 +2,76 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 const API = process.env.REACT_APP_API_URL || "";
 
+function WelcomeSplash({ onDone }) {
+  const [phase, setPhase] = useState("in"); // in → hold → out
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase("out"), 3000);
+    const t2 = setTimeout(() => onDone(), 3800);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [onDone]);
+
+  return (
+    <>
+      <style>{`
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(24px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        @keyframes glow {
+          0%, 100% { text-shadow: 0 0 20px rgba(99,179,237,0.4), 0 0 40px rgba(99,179,237,0.2); }
+          50%       { text-shadow: 0 0 40px rgba(99,179,237,0.8), 0 0 80px rgba(99,179,237,0.4); }
+        }
+        @keyframes progress {
+          from { width: 0%; }
+          to   { width: 100%; }
+        }
+        @keyframes fadeOut {
+          from { opacity: 1; }
+          to   { opacity: 0; }
+        }
+        .splash-wrap {
+          animation: ${phase === "out" ? "fadeOut 0.8s ease forwards" : "fadeIn 0.5s ease forwards"};
+        }
+        .splash-sub  { animation: fadeUp 0.8s ease 0.3s both; }
+        .splash-name { animation: fadeUp 0.8s ease 0.7s both, glow 2.5s ease 1.2s infinite; }
+        .splash-line { animation: fadeUp 0.6s ease 1.2s both; }
+        .splash-bar  { animation: progress 2.8s linear 0.5s both; }
+      `}</style>
+
+      <div className="splash-wrap" style={splashStyles.wrap}>
+        <div style={splashStyles.content}>
+          <div style={splashStyles.iconRow}>
+            <span style={splashStyles.icon}>⚙️</span>
+          </div>
+          <p className="splash-sub" style={splashStyles.sub}>Welcome back,</p>
+          <h1 className="splash-name" style={splashStyles.name}>Akash</h1>
+          <p className="splash-line" style={splashStyles.tagline}>DevOps Demo · Kubernetes · GitOps</p>
+          <div className="splash-line" style={splashStyles.barWrap}>
+            <div className="splash-bar" style={splashStyles.bar} />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+const splashStyles = {
+  wrap:    { position:"fixed", inset:0, background:"linear-gradient(135deg,#0f172a 0%,#1e3a5f 60%,#0f172a 100%)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999 },
+  content: { textAlign:"center", display:"flex", flexDirection:"column", alignItems:"center", gap:"0.5rem" },
+  iconRow: { marginBottom:"0.5rem" },
+  icon:    { fontSize:"3.5rem", display:"block" },
+  sub:     { margin:0, color:"#94a3b8", fontSize:"1.1rem", fontWeight:400, letterSpacing:"0.5px" },
+  name:    { margin:0, color:"#e2e8f0", fontSize:"3.5rem", fontWeight:700, letterSpacing:"-1px" },
+  tagline: { margin:0, color:"#475569", fontSize:"0.8rem", letterSpacing:"2px", textTransform:"uppercase", marginTop:"0.25rem" },
+  barWrap: { width:200, height:3, background:"rgba(255,255,255,0.08)", borderRadius:99, overflow:"hidden", marginTop:"2rem" },
+  bar:     { height:"100%", background:"linear-gradient(90deg,#3b82f6,#60a5fa)", borderRadius:99 },
+};
+
 function Calculator({ onClose }) {
   const [display, setDisplay] = useState("0");
   const [expr,    setExpr]    = useState("");
@@ -351,6 +421,12 @@ export default function App() {
   const [showCalc,   setShowCalc]   = useState(false);
   const [showWeather,setShowWeather] = useState(false);
   const [showIPL,    setShowIPL]     = useState(false);
+  const [showSplash, setShowSplash]  = useState(window.location.pathname === "/user");
+
+  const handleSplashDone = useCallback(() => {
+    window.history.pushState({}, "", "/");
+    setShowSplash(false);
+  }, []);
 
   const fetchItems = useCallback(async () => {
     try {
@@ -401,6 +477,8 @@ export default function App() {
       setStatus({ ok: false, message: "Delete failed" });
     }
   }
+
+  if (showSplash) return <WelcomeSplash onDone={handleSplashDone} />;
 
   return (
     <div style={styles.page}>
